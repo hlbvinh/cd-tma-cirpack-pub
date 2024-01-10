@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pcscf
+  labels:
+    app: pcscf
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pcscf-pod
+  template:
+    metadata:
+      annotations:
+        app.kubernetes.io/instance: prometheus-grafana-stack
+      labels:
+        app: pcscf-pod
+    spec:
+      nodeSelector:
+        node-name: "worker"
+      containers:
+      - name: pcscf
+        #image: hlbvinh/pcscf_rhel88:2023-12-05-11-26-06
+        image: hlbvinh/pcscf_rhel88:test4
+        securityContext:
+          privileged: true
+        env:
+        - name: DNS_SERVER
+          value: "192.168.33.165"
+        - name: key_update_dns
+          value: "6aG/TtzFizBuTn+MBR8cvg=="
+        - name: DNS_ZONE
+          value: cirpack.test
+        volumeMounts:
+        - name: cfg-volume
+          mountPath: /home/etc/
+        - name: tail-log
+          mountPath: /home/log/
+        ports:
+        - containerPort: 5011
+          name: extern-udp
+          protocol: UDP
+        - containerPort: 5031
+          name: extern-tcp
+          protocol: TCP
+        - containerPort: 8000
+          name: web-metric
+          protocol: TCP
+        #resources:
+        #  requests:
+        #    cpu: "200m"
+      - name: pcscf-log
+        image: registry.access.redhat.com/ubi8-micro:8.8-7
+        volumeMounts:
+        - name: tail-log
+          mountPath: /home/
+        command: ["/bin/sh"]
+        args: ["-c", "tail -1000f /home/pcscf.1"]
+      volumes:
+      - name: cfg-volume
+        persistentVolumeClaim:
+          claimName: pvc-home-etc-pcscf
+      - name: tail-log
+        emptyDir: {}
